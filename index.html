@@ -549,15 +549,15 @@ $("saveRoundBtn").onclick = () => {
 
 /* ---------------- Guidad omgång (turn-based wizard) ---------------- */
 const GUIDED_PHASES = [
-  { key: "anrop",  label: "Chicago" },
   { key: "byte1",  label: "1:a bytet" },
   { key: "byte2",  label: "2:a bytet" },
+  { key: "anrop",  label: "Chicago" },
   { key: "stick",  label: "Stick" },
   { key: "slutet", label: "Slutet" },
 ];
 // maps each step to a phase index (for the progress dots)
 const STEP_PHASE = {
-  anrop: 0, byte1_who: 1, byte1_what: 1, byte2_who: 2, byte2_what: 2,
+  byte1_who: 0, byte1_what: 0, byte2_who: 1, byte2_what: 1, anrop: 2,
   lasttrick: 3, chicago_result: 3, final_who: 4, final_what: 4, summary: 5,
 };
 
@@ -567,7 +567,7 @@ function startGuided() {
   $("roundToolbar").classList.add("hidden");
   $("guidedPanel").classList.remove("hidden");
   guided = {
-    step: "anrop",
+    step: "byte1_who",
     history: [],
     data: {
       chicago: null,                  // player index that called Chicago, or null
@@ -590,11 +590,11 @@ function closeGuided() {
 function nextStep(step) {
   const d = guided.data;
   switch (step) {
-    case "anrop":          return "byte1_who";
     case "byte1_who":      return d.byte1.player === null ? "byte2_who" : "byte1_what";
     case "byte1_what":     return "byte2_who";
-    case "byte2_who":      return d.byte2.player === null ? "lasttrick" : "byte2_what";
-    case "byte2_what":     return "lasttrick";
+    case "byte2_who":      return d.byte2.player === null ? "anrop" : "byte2_what";
+    case "byte2_what":     return "anrop";
+    case "anrop":          return "lasttrick";
     case "lasttrick":      return d.chicago !== null ? "chicago_result" : "final_who";
     case "chicago_result": return "final_who";
     case "final_who":      return d.final.player === null ? "summary" : "final_what";
