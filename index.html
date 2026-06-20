@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chicago – Poängräknare</title>
+<style>
+  :root {
+    --bg: #0f1f17;
+    --bg-2: #143025;
+    --felt: #1c5c3b;
+    --felt-light: #237049;
+    --gold: #e7c66b;
+    --gold-dim: #b8983f;
+    --ink: #f3f6f2;
+    --ink-dim: #a9bcae;
+    --card: #ffffff;
+    --red: #d8443a;
+    --line: rgba(255,255,255,.12);
+    --radius: 16px;
+    --shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: radial-gradient(1200px 800px at 50% -10%, var(--bg-2), var(--bg));
+    color: var(--ink);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 24px 18px 80px; }
+
+  header.app {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 22px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .suits { font-size: 26px; letter-spacing: -2px; }
+  .brand .suits .red { color: var(--red); }
+  .brand h1 {
+    font-size: 22px; font-weight: 800; letter-spacing: .3px;
+  }
+  .brand h1 small { display:block; font-size: 11px; font-weight: 600; color: var(--ink-dim); letter-spacing: 2px; text-transform: uppercase; }
+  .ghost-btn {
+    background: transparent; border: 1px solid var(--line); color: var(--ink-dim);
+    padding: 8px 12px; border-radius: 10px; font-size: 13px; cursor: pointer; font-weight: 600;
+  }
+  .ghost-btn:hover { color: var(--ink); border-color: var(--gold); }
+
+  .panel {
+    background: linear-gradient(180deg, var(--felt-light), var(--felt));
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 22px;
+    margin-bottom: 18px;
+  }
+  .panel h2 { font-size: 16px; margin-bottom: 14px; display:flex; align-items:center; gap:8px; }
+  .panel h2 .dot { color: var(--gold); }
+
+  label.field { display: block; margin-bottom: 14px; }
+  label.field span { display:block; font-size: 12px; color: var(--ink-dim); margin-bottom: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+  input[type="text"], input[type="number"] {
+    width: 100%; padding: 12px 14px; border-radius: 10px;
+    border: 1px solid var(--line); background: rgba(0,0,0,.22); color: var(--ink);
+    font-size: 16px; outline: none;
+  }
+  input:focus { border-color: var(--gold); }
+  input::placeholder { color: #ffffff; opacity: .6; }
+
+  .count-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .stepper { display:flex; align-items:center; gap:0; border:1px solid var(--line); border-radius: 10px; overflow:hidden; }
+  .stepper button { width: 42px; height: 42px; font-size: 22px; background: rgba(0,0,0,.2); color: var(--ink); border:none; cursor:pointer; }
+  .stepper button:hover { background: rgba(0,0,0,.4); }
+  .stepper .val { width: 48px; text-align:center; font-size: 18px; font-weight: 700; }
+
+  .player-inputs { display: grid; gap: 10px; margin-bottom: 18px; }
+  .player-inputs .pi { display:flex; align-items:center; gap: 10px; }
+  .player-inputs .num { width: 34px; height: 34px; flex: none; border-radius: 50%; background: var(--gold); color: #1a1208; font-weight: 800; display:grid; place-items:center; font-size: 14px; }
+
+  button.primary {
+    width: 100%; padding: 14px; border:none; border-radius: 12px;
+    background: linear-gradient(180deg, #f0d27e, var(--gold));
+    color: #2a1c05; font-weight: 800; font-size: 16px; cursor: pointer;
+    box-shadow: 0 6px 16px rgba(231,198,107,.25);
+  }
+  button.primary:hover { filter: brightness(1.05); }
+  button.primary:disabled { opacity:.4; cursor:not-allowed; }
+
+  /* Scoreboard */
+  .board { display: grid; gap: 10px; }
+  .row {
+    display:grid; grid-template-columns: 1fr auto; align-items:center;
+    background: rgba(0,0,0,.2); border:1px solid var(--line); border-radius: 12px; padding: 14px 16px;
+    transition: transform .15s ease;
+  }
+  .row.leader { border-color: var(--gold); box-shadow: inset 0 0 0 1px rgba(231,198,107,.4); }
+  .row .who { display:flex; align-items:center; gap:12px; }
+  .row .rank { width: 26px; height:26px; border-radius:50%; background: rgba(255,255,255,.1); display:grid; place-items:center; font-size:13px; font-weight:700; color: var(--ink-dim); }
+  .row.leader .rank { background: var(--gold); color:#2a1c05; }
+  .row .name { font-weight: 700; font-size: 16px; }
+  .row .meta { font-size: 12px; color: var(--ink-dim); }
+  .row .total { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .row .total small { font-size: 12px; color: var(--ink-dim); font-weight:600; }
+
+  .progress { height: 5px; background: rgba(0,0,0,.3); border-radius: 4px; margin-top: 8px; overflow:hidden; grid-column: 1 / -1; }
+  .progress i { display:block; height:100%; background: linear-gradient(90deg, var(--gold), #fff0c0); border-radius:4px; transition: width .4s ease; }
+
+  /* Round entry */
+  .entry-player {
+    background: rgba(0,0,0,.18); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px;
+  }
+  .entry-player .top { display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px; }
+  .entry-player .top .name { font-weight:700; font-size:15px; }
+  .entry-player .top .rv { display:flex; align-items:center; gap:8px; position: relative; }
+  .entry-player .top .rv input { width: 64px; text-align:center; font-size:18px; font-weight:800; padding:8px; }
+  .entry-player .top .rv input::-webkit-outer-spin-button,
+  .entry-player .top .rv input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .entry-player .top .rv input { -moz-appearance: textfield; }
+  .entry-player .top .rv .adjbtn {
+    width: 38px; height: 38px; flex: none; border-radius: 10px; cursor: pointer;
+    border: 1px solid var(--line); background: rgba(0,0,0,.22); color: var(--ink);
+    font-size: 22px; font-weight: 700; line-height: 1; display: grid; place-items: center;
+  }
+  .entry-player .top .rv .adjbtn:hover { border-color: var(--gold); background: rgba(231,198,107,.12); }
+  .entry-player .top .rv .adjbtn:active { background: rgba(231,198,107,.25); }
+  .entry-player .top .clearbtn { background:transparent; border:none; color:var(--ink-dim); cursor:pointer; font-size:12px; text-decoration:underline; }
+
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip {
+    border:1px solid var(--line); background: rgba(255,255,255,.06); color: var(--ink);
+    padding: 6px 10px; border-radius: 999px; font-size: 12.5px; cursor:pointer; font-weight:600;
+    display:flex; align-items:center; gap:6px;
+  }
+  .chip:hover { border-color: var(--gold); background: rgba(231,198,107,.12); }
+  .chip b { color: var(--gold); }
+  .chip.danger b { color: var(--red); }
+
+  /* Feedback when points are awarded */
+  @keyframes chipFlash {
+    0% { background: rgba(231,198,107,.55); border-color: var(--gold); transform: scale(.96); }
+    100% { background: rgba(255,255,255,.06); transform: scale(1); }
+  }
+  .chip.flash { animation: chipFlash .45s ease; }
+  @keyframes valPop {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.22); }
+    100% { transform: scale(1); }
+  }
+  .roundVal.pop { animation: valPop .3s ease; border-color: var(--gold); }
+  @keyframes floatUp {
+    0% { opacity: 0; transform: translate(-50%, 4px) scale(.7); }
+    18% { opacity: 1; transform: translate(-50%, -4px) scale(1.05); }
+    100% { opacity: 0; transform: translate(-50%, -38px) scale(1); }
+  }
+  .delta-badge {
+    position: absolute; left: 50%; top: -10px; transform: translate(-50%, 0);
+    pointer-events: none; font-weight: 800; font-size: 17px; z-index: 5;
+    color: var(--gold); text-shadow: 0 2px 6px rgba(0,0,0,.6);
+    animation: floatUp .85s ease forwards; white-space: nowrap;
+  }
+  .delta-badge.minus { color: var(--red); }
+
+  /* Köpstopp */
+  .stop-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(216,68,58,.18); color: #ffb4ad; border: 1px solid rgba(216,68,58,.55);
+    font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: .5px; white-space: nowrap; vertical-align: middle;
+  }
+  .stop-pill.hide { display: none; }
+
+  /* Guidad omgång (wizard) */
+  .guided-progress { display:flex; gap:8px; align-items:center; margin-bottom:18px; }
+  .guided-progress .gp-step { display:flex; flex-direction:column; align-items:center; gap:5px; flex:1; }
+  .guided-progress .gp-dot { width:11px; height:11px; border-radius:50%; background:rgba(255,255,255,.14); transition:.25s; }
+  .guided-progress .gp-step.done .gp-dot { background:var(--gold); }
+  .guided-progress .gp-step.active .gp-dot { background:var(--gold); box-shadow:0 0 0 4px rgba(231,198,107,.25); }
+  .guided-progress .gp-label { font-size:9px; text-transform:uppercase; letter-spacing:.5px; color:var(--ink-dim); font-weight:700; text-align:center; }
+  .guided-progress .gp-step.active .gp-label { color:var(--gold); }
+
+  .guided-q { font-size:19px; font-weight:800; margin-bottom:16px; line-height:1.3; }
+  .opt-list { display:grid; gap:10px; margin-bottom:6px; }
+  .opt-list.cols { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .opt {
+    text-align:left; padding:15px 16px; border-radius:12px; cursor:pointer;
+    border:1px solid var(--line); background:rgba(0,0,0,.2); color:var(--ink);
+    font-size:16px; font-weight:700; display:flex; align-items:center; justify-content:space-between; gap:10px;
+    transition:.12s;
+  }
+  .opt:hover { border-color:var(--gold); background:rgba(231,198,107,.12); transform:translateY(-1px); }
+  .opt:active { transform:translateY(0); }
+  .opt .lhs { display:flex; align-items:center; gap:11px; }
+  .opt .av { width:28px; height:28px; flex:none; border-radius:50%; background:var(--gold); color:#1a1208; font-weight:800; display:grid; place-items:center; font-size:13px; }
+  .opt .pts { color:var(--gold); font-weight:800; font-variant-numeric:tabular-nums; }
+  .opt.neg .pts { color:var(--red); }
+  .opt.subtle { background:transparent; color:var(--ink-dim); justify-content:center; font-weight:600; font-size:14px; }
+  .opt.subtle:hover { color:var(--ink); }
+
+  .guided-back { background:transparent; border:none; color:var(--ink-dim); cursor:pointer; font-size:13px; text-decoration:underline; margin-bottom:14px; padding:0; font-weight:600; }
+  .guided-back:hover { color:var(--ink); }
+
+  .gsum-head { text-align:center; margin-bottom:18px; }
+  .gsum-head .gsum-crown { font-size:34px; }
+  .gsum-head h3 { font-size:22px; margin:4px 0 2px; }
+  .gsum-head p { color:var(--ink-dim); font-size:13px; font-weight:600; }
+  .gsum-list { margin-bottom:18px; }
+  .gsum-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 2px; border-bottom:1px solid var(--line); }
+  .gsum-row:last-child { border-bottom:none; }
+  .gsum-row .gsum-name { font-weight:700; font-size:16px; }
+  .gsum-row .gsum-breakdown { font-size:12px; color:var(--ink-dim); margin-top:2px; }
+  .gsum-row .pts { font-size:24px; font-weight:800; font-variant-numeric:tabular-nums; color:var(--gold); }
+  .gsum-row .pts.neg { color:var(--red); }
+  .gsum-row .pts.zero { color:var(--ink-dim); }
+
+  .chip-group-label { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--ink-dim); margin: 10px 0 5px; font-weight:700; }
+
+  .toolbar { display:flex; gap:10px; margin-bottom: 14px; flex-wrap:wrap; }
+  .toolbar .ghost-btn { flex: none; }
+
+  /* History */
+  .hist { font-size: 13px; }
+  .hist table { width:100%; border-collapse: collapse; }
+  .hist th, .hist td { padding: 8px 6px; text-align: center; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  .hist th { color: var(--ink-dim); font-size: 11px; text-transform: uppercase; letter-spacing:1px; }
+  .hist td:first-child, .hist th:first-child { text-align:left; color: var(--ink-dim); }
+  .hist tr:last-child td { border-bottom: none; }
+  .hist .delcol { width: 28px; }
+  .hist .delbtn { background:none; border:none; color: var(--ink-dim); cursor:pointer; font-size:14px; }
+  .hist .delbtn:hover { color: var(--red); }
+
+  .empty { text-align:center; color: var(--ink-dim); padding: 24px 0; font-size: 14px; }
+
+  .winner-banner {
+    text-align:center; padding: 28px 18px; border-radius: var(--radius);
+    background: linear-gradient(180deg, #f0d27e, var(--gold)); color:#2a1c05;
+    margin-bottom: 18px; box-shadow: var(--shadow);
+  }
+  .winner-banner .crown { font-size: 40px; }
+  .winner-banner h2 { font-size: 24px; margin: 6px 0 2px; }
+  .winner-banner p { font-weight:600; opacity:.8; }
+
+  .hidden { display: none !important; }
+
+  /* Modal */
+  .overlay { position: fixed; inset:0; background: rgba(0,0,0,.6); display:grid; place-items:center; padding:18px; z-index:50; }
+  .modal { background: var(--bg-2); border:1px solid var(--line); border-radius: var(--radius); padding:22px; max-width: 460px; width:100%; box-shadow: var(--shadow); }
+  .modal h3 { margin-bottom: 6px; }
+  .modal p { color: var(--ink-dim); font-size: 14px; margin-bottom: 16px; }
+  .modal .actions { display:flex; gap:10px; }
+  .modal .actions button { flex:1; padding:12px; border-radius:10px; cursor:pointer; font-weight:700; border:none; }
+  .modal .actions .cancel { background: rgba(255,255,255,.08); color: var(--ink); }
+  .modal .actions .confirm { background: var(--red); color:#fff; }
+
+  .footnote { text-align:center; color: var(--ink-dim); font-size:12px; margin-top: 10px; }
+  .preset-info { font-size:12px; color: var(--ink-dim); line-height:1.5; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <div class="brand">
+      <div class="suits">♠<span class="red">♥</span>♣<span class="red">♦</span></div>
+      <h1>Chicago <small>Poängräknare</small></h1>
+    </div>
+    <button class="ghost-btn hidden" id="newGameBtn">Nytt spel</button>
+  </header>
+
+  <!-- SETUP VIEW -->
+  <section id="setupView">
+    <div class="panel">
+      <h2><span class="dot">●</span> Spelare</h2>
+      <div class="count-row">
+        <span style="color:var(--ink-dim);font-size:13px;font-weight:600;">Antal spelare</span>
+        <div class="stepper">
+          <button id="lessPlayers">−</button>
+          <div class="val" id="playerCount">3</div>
+          <button id="morePlayers">+</button>
+        </div>
+      </div>
+      <div class="player-inputs" id="nameInputs"></div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="dot">●</span> Inställningar</h2>
+      <label class="field">
+        <span>Mål – poäng för att vinna</span>
+        <input type="number" id="targetScore" value="52" min="1" />
+      </label>
+      <label class="field">
+        <span>Köpstopp – nivå då man inte längre får byta kort</span>
+        <input type="number" id="buyStop" value="45" min="0" />
+      </label>
+      <p class="preset-info">
+        Förinställda poäng (Chicago-standard): par 1 · två par 2 · triss 3 · stege 4 · färg 5 · kåk 6 · fyrtal 7 · färgstege 8 · royal 52.
+        Stick: sista 5 · Chicago lyckad 15 · Chicago misslyckad −15.
+      </p>
+    </div>
+
+    <button class="primary" id="startBtn">Starta spel</button>
+  </section>
+
+  <!-- GAME VIEW -->
+  <section id="gameView" class="hidden">
+    <div id="winnerWrap"></div>
+
+    <div class="panel">
+      <h2><span class="dot">●</span> Ställning <span id="targetLabel" style="margin-left:auto;font-size:12px;color:var(--ink-dim);font-weight:600;"></span></h2>
+      <div class="board" id="board"></div>
+    </div>
+
+    <div class="toolbar" id="roundToolbar">
+      <button class="primary" id="guidedRoundBtn" style="flex:2;">🎯 Guidad omgång</button>
+      <button class="ghost-btn" id="addRoundBtn" style="flex:1;">+ Snabbinmatning</button>
+    </div>
+
+    <div class="panel hidden" id="entryPanel">
+      <h2><span class="dot">●</span> Omgång <span id="roundNo"></span></h2>
+      <div id="entryPlayers"></div>
+      <button class="primary" id="saveRoundBtn">Spara omgång</button>
+      <button class="ghost-btn" id="cancelRoundBtn" style="width:100%;margin-top:10px;">Avbryt</button>
+    </div>
+
+    <div class="panel hidden" id="guidedPanel">
+      <h2><span class="dot">●</span> Guidad omgång <span id="guidedRoundNo"></span></h2>
+      <div id="guidedProgress" class="guided-progress"></div>
+      <div id="guidedBody"></div>
+    </div>
+
+    <div class="panel">
+      <h2><span class="dot">●</span> Historik</h2>
+      <div class="hist" id="history"></div>
+    </div>
+  </section>
+
+  <p class="footnote">Sparas automatiskt i din webbläsare.</p>
+</div>
+
+<!-- confirm modal -->
+<div class="overlay hidden" id="modal">
+  <div class="modal">
+    <h3 id="modalTitle">Är du säker?</h3>
+    <p id="modalText"></p>
+    <div class="actions">
+      <button class="cancel" id="modalCancel">Avbryt</button>
+      <button class="confirm" id="modalConfirm">Ja</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- Presets (the usual for Chicago) ---------------- */
+const POKER_PRESETS = [
+  { label: "Par", pts: 1 },
+  { label: "Två par", pts: 2 },
+  { label: "Triss", pts: 3 },
+  { label: "Stege", pts: 4 },
+  { label: "Färg", pts: 5 },
+  { label: "Kåk", pts: 6 },
+  { label: "Fyrtal", pts: 7 },
+  { label: "Färgstege", pts: 8 },
+  { label: "Royal", pts: 52 },
+];
+const TRICK_PRESETS = [
+  { label: "Sista sticket", pts: 5 },
+  { label: "Chicago (lyckad)", pts: 15 },
+  { label: "Chicago (misslyckad)", pts: -15, danger: true },
+];
+
+const STOP_PILL = '<span class="stop-pill">🔒 Köpstopp</span>';
+
+const LS_KEY = "chicago-score-v1";
+
+/* ---------------- State ---------------- */
+let state = {
+  players: [],        // [{name, total}]
+  rounds: [],         // [[p0pts, p1pts, ...], ...]
+  target: 52,
+  started: false,
+};
+let draft = null;     // array of points being entered for current round
+let guided = null;    // guided (turn-based) round entry state
+let setupNames = ["", "", ""];
+let setupCount = 3;
+
+/* ---------------- Persistence ---------------- */
+function save() { localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+function load() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) { state = JSON.parse(raw); return true; }
+  } catch (e) {}
+  return false;
+}
+
+/* ---------------- Helpers ---------------- */
+const $ = (id) => document.getElementById(id);
+function totals() {
+  return state.players.map((p, i) =>
+    state.rounds.reduce((sum, r) => sum + (r[i] || 0), 0)
+  );
+}
+function winnerIndex() {
+  const t = totals();
+  let max = -Infinity, idx = -1;
+  t.forEach((v, i) => { if (v > max) { max = v; idx = i; } });
+  if (max >= state.target) {
+    // ensure unique leader (no tie at/over target)
+    const atOrOver = t.filter(v => v >= max).length;
+    if (atOrOver === 1) return idx;
+  }
+  return -1;
+}
+
+/* ---------------- Setup view ---------------- */
+function renderSetup() {
+  $("playerCount").textContent = setupCount;
+  const wrap = $("nameInputs");
+  wrap.innerHTML = "";
+  for (let i = 0; i < setupCount; i++) {
+    const row = document.createElement("div");
+    row.className = "pi";
+    row.innerHTML = `<div class="num">${i + 1}</div>`;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.autocomplete = "off";
+    input.setAttribute("autocapitalize", "words");
+    const ph = `Spelare ${i + 1}`;
+    input.value = setupNames[i] || "";
+    input.placeholder = ph;
+    input.addEventListener("input", (e) => { setupNames[i] = e.target.value; });
+    // placeholder disappears as soon as the field is focused, returns on blur if empty
+    input.addEventListener("focus", () => { input.placeholder = ""; });
+    input.addEventListener("blur", () => { input.placeholder = ph; });
+    row.appendChild(input);
+    wrap.appendChild(row);
+  }
+}
+$("lessPlayers").onclick = () => { if (setupCount > 2) { setupCount--; renderSetup(); } };
+$("morePlayers").onclick = () => { if (setupCount < 8) { setupCount++; renderSetup(); } };
+
+$("startBtn").onclick = () => {
+  const names = [];
+  for (let i = 0; i < setupCount; i++) {
+    names.push((setupNames[i] || "").trim() || `Spelare ${i + 1}`);
+  }
+  state = {
+    players: names.map(n => ({ name: n })),
+    rounds: [],
+    target: Math.max(1, parseInt($("targetScore").value) || 52),
+    buyStop: Math.max(0, parseInt($("buyStop").value) || 0),
+    started: true,
+  };
+  save();
+  showGame();
+};
+
+/* ---------------- Game view ---------------- */
+function showGame() {
+  $("setupView").classList.add("hidden");
+  $("gameView").classList.remove("hidden");
+  $("newGameBtn").classList.remove("hidden");
+  $("entryPanel").classList.add("hidden");
+  $("guidedPanel").classList.add("hidden");
+  $("roundToolbar").classList.remove("hidden");
+  guided = null;
+  if (typeof state.buyStop !== "number") state.buyStop = Math.max(0, state.target - 7);
+  $("targetLabel").textContent = `Mål: ${state.target} p` + (state.buyStop > 0 ? ` · Köpstopp: ${state.buyStop} p` : "");
+  renderBoard();
+  renderHistory();
+  renderWinner();
+}
+function showSetup() {
+  $("gameView").classList.add("hidden");
+  $("setupView").classList.remove("hidden");
+  $("newGameBtn").classList.add("hidden");
+  renderSetup();
+}
+
+function renderBoard() {
+  const t = totals();
+  const order = state.players.map((p, i) => i).sort((a, b) => t[b] - t[a]);
+  const board = $("board");
+  board.innerHTML = "";
+  const maxTotal = Math.max(...t, 0);
+  order.forEach((i, rankPos) => {
+    const isLeader = t[i] === maxTotal && maxTotal > 0;
+    const atStop = state.buyStop > 0 && t[i] >= state.buyStop;
+    const pct = Math.min(100, (t[i] / state.target) * 100);
+    const row = document.createElement("div");
+    row.className = "row" + (isLeader ? " leader" : "");
+    row.innerHTML = `
+      <div class="who">
+        <div class="rank">${rankPos + 1}</div>
+        <div>
+          <div class="name">${escapeHtml(state.players[i].name)} ${atStop ? STOP_PILL : ""}</div>
+          <div class="meta">${state.rounds.length} omgångar</div>
+        </div>
+      </div>
+      <div class="total">${t[i]}<small> / ${state.target}</small></div>
+      <div class="progress"><i style="width:${pct}%"></i></div>
+    `;
+    board.appendChild(row);
+  });
+}
+
+function renderWinner() {
+  const wi = winnerIndex();
+  const wrap = $("winnerWrap");
+  if (wi >= 0) {
+    wrap.innerHTML = `
+      <div class="winner-banner">
+        <div class="crown">👑</div>
+        <h2>${escapeHtml(state.players[wi].name)} vinner!</h2>
+        <p>${totals()[wi]} poäng</p>
+      </div>`;
+    $("guidedRoundBtn").textContent = "🎯 Fortsätt spela (guidad)";
+  } else {
+    wrap.innerHTML = "";
+    $("guidedRoundBtn").textContent = "🎯 Guidad omgång";
+  }
+}
+
+/* ---------------- Round entry ---------------- */
+$("addRoundBtn").onclick = () => {
+  draft = state.players.map(() => 0);
+  $("roundNo").textContent = "#" + (state.rounds.length + 1);
+  $("entryPanel").classList.remove("hidden");
+  $("roundToolbar").classList.add("hidden");
+  renderEntry();
+  $("entryPanel").scrollIntoView({ behavior: "smooth", block: "center" });
+};
+$("cancelRoundBtn").onclick = () => {
+  draft = null;
+  $("entryPanel").classList.add("hidden");
+  $("roundToolbar").classList.remove("hidden");
+};
+$("saveRoundBtn").onclick = () => {
+  if (!draft) return;
+  state.rounds.push(draft.slice());
+  draft = null;
+  save();
+  $("entryPanel").classList.add("hidden");
+  $("roundToolbar").classList.remove("hidden");
+  renderBoard();
+  renderHistory();
+  renderWinner();
+};
+
+/* ---------------- Guidad omgång (turn-based wizard) ---------------- */
+const GUIDED_PHASES = [
+  { key: "anrop",  label: "Chicago" },
+  { key: "byte1",  label: "1:a bytet" },
+  { key: "byte2",  label: "2:a bytet" },
+  { key: "stick",  label: "Stick" },
+  { key: "slutet", label: "Slutet" },
+];
+// maps each step to a phase index (for the progress dots)
+const STEP_PHASE = {
+  anrop: 0, byte1_who: 1, byte1_what: 1, byte2_who: 2, byte2_what: 2,
+  lasttrick: 3, chicago_result: 3, final_who: 4, final_what: 4, summary: 5,
+};
+
+function startGuided() {
+  draft = null;
+  $("entryPanel").classList.add("hidden");
+  $("roundToolbar").classList.add("hidden");
+  $("guidedPanel").classList.remove("hidden");
+  guided = {
+    step: "anrop",
+    history: [],
+    data: {
+      chicago: null,                  // player index that called Chicago, or null
+      chicagoSuccess: null,           // bool, only if chicago !== null
+      byte1: { player: null, pts: 0, label: "" },
+      byte2: { player: null, pts: 0, label: "" },
+      lastTrick: null,                // player index
+      final: { player: null, pts: 0, label: "" },
+    },
+  };
+  renderGuided();
+  $("guidedPanel").scrollIntoView({ behavior: "smooth", block: "center" });
+}
+function closeGuided() {
+  guided = null;
+  $("guidedPanel").classList.add("hidden");
+  $("roundToolbar").classList.remove("hidden");
+}
+
+function nextStep(step) {
+  const d = guided.data;
+  switch (step) {
+    case "anrop":          return "byte1_who";
+    case "byte1_who":      return d.byte1.player === null ? "byte2_who" : "byte1_what";
+    case "byte1_what":     return "byte2_who";
+    case "byte2_who":      return d.byte2.player === null ? "lasttrick" : "byte2_what";
+    case "byte2_what":     return "lasttrick";
+    case "lasttrick":      return d.chicago !== null ? "chicago_result" : "final_who";
+    case "chicago_result": return "final_who";
+    case "final_who":      return d.final.player === null ? "summary" : "final_what";
+    case "final_what":     return "summary";
+  }
+}
+function guidedAdvance() {
+  guided.history.push(guided.step);
+  guided.step = nextStep(guided.step);
+  renderGuided();
+}
+function guidedBack() {
+  if (guided.history.length) {
+    guided.step = guided.history.pop();
+    renderGuided();
+  }
+}
+
+function pname(i) { return escapeHtml(state.players[i].name); }
+
+function playerOptsHTML(extra) {
+  let h = `<div class="opt-list">`;
+  h += state.players.map((p, i) =>
+    `<button class="opt" data-player="${i}"><span class="lhs"><span class="av">${i + 1}</span>${escapeHtml(p.name)}</span></button>`
+  ).join("");
+  (extra || []).forEach(e => {
+    h += `<button class="opt subtle" data-special="${e.key}">${escapeHtml(e.label)}</button>`;
+  });
+  return h + `</div>`;
+}
+function handOptsHTML() {
+  return `<div class="opt-list cols">` + POKER_PRESETS.map(hd =>
+    `<button class="opt" data-hand="${hd.pts}" data-handlabel="${escapeHtml(hd.label)}"><span>${escapeHtml(hd.label)}</span><span class="pts">+${hd.pts}</span></button>`
+  ).join("") + `</div>`;
+}
+function q(text) { return `<div class="guided-q">${text}</div>`; }
+
+function renderGuidedProgress() {
+  const cur = STEP_PHASE[guided.step];
+  $("guidedProgress").innerHTML = GUIDED_PHASES.map((ph, idx) => {
+    const cls = idx < cur ? "done" : (idx === cur ? "active" : "");
+    return `<div class="gp-step ${cls}"><div class="gp-dot"></div><div class="gp-label">${ph.label}</div></div>`;
+  }).join("");
+}
+
+function guidedRoundPoints() {
+  const r = state.players.map(() => 0);
+  const d = guided.data;
+  if (d.byte1.player !== null) r[d.byte1.player] += d.byte1.pts;
+  if (d.byte2.player !== null) r[d.byte2.player] += d.byte2.pts;
+  if (d.lastTrick !== null) r[d.lastTrick] += 5;
+  if (d.chicago !== null) r[d.chicago] += d.chicagoSuccess ? 15 : -15;
+  if (d.final.player !== null) r[d.final.player] += d.final.pts;
+  return r;
+}
+
+function renderGuided() {
+  $("guidedRoundNo").textContent = "#" + (state.rounds.length + 1);
+  renderGuidedProgress();
+  const body = $("guidedBody");
+  const d = guided.data;
+  const step = guided.step;
+  let html = "";
+
+  if (step !== "summary") {
+    html += guided.history.length
+      ? `<button class="guided-back" id="gBack">← Tillbaka</button>`
+      : `<button class="guided-back" id="gCancel">✕ Avbryt</button>`;
+  }
+
+  if (step === "anrop") {
+    html += q("Sa någon Chicago?") + playerOptsHTML([{ key: "none", label: "Nej, ingen sa Chicago" }]);
+  } else if (step === "byte1_who") {
+    html += q("Vem hade bästa handen efter första bytet?") + playerOptsHTML([{ key: "none", label: "Ingen / ingen poäng" }]);
+  } else if (step === "byte1_what") {
+    html += q(`Vilken pokerhand hade ${pname(d.byte1.player)}?`) + handOptsHTML();
+  } else if (step === "byte2_who") {
+    html += q("Vem hade bästa handen efter andra bytet?") + playerOptsHTML([{ key: "none", label: "Ingen / ingen poäng" }]);
+  } else if (step === "byte2_what") {
+    html += q(`Vilken pokerhand hade ${pname(d.byte2.player)}?`) + handOptsHTML();
+  } else if (step === "lasttrick") {
+    html += q("Vem tog sista sticket?") + playerOptsHTML();
+  } else if (step === "chicago_result") {
+    html += q(`Lyckades ${pname(d.chicago)} med sitt Chicago?`) +
+      `<div class="opt-list">
+        <button class="opt" data-res="1"><span class="lhs">Ja – tog alla stick</span><span class="pts">+15</span></button>
+        <button class="opt neg" data-res="0"><span class="lhs">Nej – misslyckades</span><span class="pts">−15</span></button>
+      </div>`;
+  } else if (step === "final_who") {
+    html += q("Vem hade bästa handen på slutet?") + playerOptsHTML([{ key: "none", label: "Ingen / ingen poäng" }]);
+  } else if (step === "final_what") {
+    html += q(`Vilken pokerhand hade ${pname(d.final.player)}?`) + handOptsHTML();
+  } else if (step === "summary") {
+    html += renderGuidedSummary();
+  }
+
+  body.innerHTML = html;
+
+  // wire up
+  body.querySelectorAll("[data-player]").forEach(b => b.onclick = () => guidedPick("player", parseInt(b.dataset.player)));
+  body.querySelectorAll("[data-special]").forEach(b => b.onclick = () => guidedPick("special", b.dataset.special));
+  body.querySelectorAll("[data-hand]").forEach(b => b.onclick = () => guidedPick("hand", parseInt(b.dataset.hand), b.dataset.handlabel));
+  body.querySelectorAll("[data-res]").forEach(b => b.onclick = () => guidedPick("res", b.dataset.res === "1"));
+  const back = $("gBack"); if (back) back.onclick = guidedBack;
+  const cancel = $("gCancel"); if (cancel) cancel.onclick = closeGuided;
+  const next = $("gNext"); if (next) next.onclick = () => { commitGuided(); startGuided(); };
+  const finish = $("gFinish"); if (finish) finish.onclick = () => { commitGuided(); closeGuided(); };
+}
+
+function guidedPick(kind, value, label) {
+  const d = guided.data;
+  const step = guided.step;
+  if (kind === "player") {
+    if (step === "anrop") d.chicago = value;
+    else if (step === "byte1_who") d.byte1.player = value;
+    else if (step === "byte2_who") d.byte2.player = value;
+    else if (step === "lasttrick") d.lastTrick = value;
+    else if (step === "final_who") d.final.player = value;
+  } else if (kind === "special") { // "none"
+    if (step === "anrop") d.chicago = null;
+    else if (step === "byte1_who") { d.byte1.player = null; d.byte1.pts = 0; d.byte1.label = ""; }
+    else if (step === "byte2_who") { d.byte2.player = null; d.byte2.pts = 0; d.byte2.label = ""; }
+    else if (step === "final_who") { d.final.player = null; d.final.pts = 0; d.final.label = ""; }
+  } else if (kind === "hand") {
+    if (step === "byte1_what") { d.byte1.pts = value; d.byte1.label = label; }
+    else if (step === "byte2_what") { d.byte2.pts = value; d.byte2.label = label; }
+    else if (step === "final_what") { d.final.pts = value; d.final.label = label; }
+  } else if (kind === "res") {
+    d.chicagoSuccess = value;
+  }
+  guidedAdvance();
+}
+
+function renderGuidedSummary() {
+  const r = guidedRoundPoints();
+  const d = guided.data;
+  const items = state.players.map(() => []);
+  if (d.byte1.player !== null) items[d.byte1.player].push(`1:a bytet: ${d.byte1.label} +${d.byte1.pts}`);
+  if (d.byte2.player !== null) items[d.byte2.player].push(`2:a bytet: ${d.byte2.label} +${d.byte2.pts}`);
+  if (d.lastTrick !== null) items[d.lastTrick].push(`Sista sticket +5`);
+  if (d.chicago !== null) items[d.chicago].push(`Chicago ${d.chicagoSuccess ? "lyckad +15" : "misslyckad −15"}`);
+  if (d.final.player !== null) items[d.final.player].push(`Slutet: ${d.final.label} +${d.final.pts}`);
+
+  return `
+    <div class="gsum-head">
+      <div class="gsum-crown">🃏</div>
+      <h3>Omgången är slut!</h3>
+      <p>Poäng för omgång #${state.rounds.length + 1}</p>
+    </div>
+    <div class="gsum-list">
+      ${state.players.map((p, i) => `
+        <div class="gsum-row">
+          <div>
+            <div class="gsum-name">${escapeHtml(p.name)}</div>
+            <div class="gsum-breakdown">${items[i].length ? items[i].join(" · ") : "Inga poäng"}</div>
+          </div>
+          <div class="pts ${r[i] < 0 ? "neg" : (r[i] === 0 ? "zero" : "")}">${r[i] > 0 ? "+" : ""}${r[i]}</div>
+        </div>`).join("")}
+    </div>
+    <button class="primary" id="gNext">Starta nästa omgång →</button>
+    <button class="ghost-btn" id="gFinish" style="width:100%;margin-top:10px;">Till ställningen</button>
+  `;
+}
+
+function commitGuided() {
+  state.rounds.push(guidedRoundPoints());
+  save();
+  renderBoard();
+  renderHistory();
+  renderWinner();
+}
+$("guidedRoundBtn").onclick = startGuided;
+
+function chip(label, pts, danger) {
+  return `<button class="chip${danger ? " danger" : ""}" data-pts="${pts}">${escapeHtml(label)} <b>${pts > 0 ? "+" : ""}${pts}</b></button>`;
+}
+
+function renderEntry() {
+  const wrap = $("entryPlayers");
+  wrap.innerHTML = "";
+  state.players.forEach((p, i) => {
+    const el = document.createElement("div");
+    el.className = "entry-player";
+    el.innerHTML = `
+      <div class="top">
+        <div class="name">${escapeHtml(p.name)} <span class="stop-pill hide" data-stop="${i}">🔒 Köpstopp</span></div>
+        <div class="rv">
+          <button class="adjbtn" data-adj="${i}" data-step="-1">−</button>
+          <input type="number" class="roundVal" data-i="${i}" value="${draft[i]}" />
+          <button class="adjbtn" data-adj="${i}" data-step="1">+</button>
+          <button class="clearbtn" data-clear="${i}">nollställ</button>
+        </div>
+      </div>
+      <div class="chip-group-label">Pokerhänder</div>
+      <div class="chips">${POKER_PRESETS.map(pr => chip(pr.label, pr.pts)).join("")}</div>
+      <div class="chip-group-label">Stick</div>
+      <div class="chips">
+        ${TRICK_PRESETS.map(pr => chip(pr.label, pr.pts, pr.danger)).join("")}
+      </div>
+    `;
+    // chip clicks
+    el.querySelectorAll(".chip").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const pts = parseInt(btn.dataset.pts);
+        draft[i] += pts;
+        syncRoundInput(i);
+        flashDelta(i, pts);
+        btn.classList.remove("flash"); void btn.offsetWidth; btn.classList.add("flash");
+      });
+    });
+    // manual edit
+    el.querySelector(".roundVal").addEventListener("input", (e) => {
+      draft[i] = parseInt(e.target.value) || 0;
+      updateEntryStops();
+    });
+    // +/- adjust
+    el.querySelectorAll("[data-adj]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const step = parseInt(btn.dataset.step);
+        draft[i] += step;
+        syncRoundInput(i);
+        flashDelta(i, step);
+      });
+    });
+    // clear
+    el.querySelector("[data-clear]").addEventListener("click", () => {
+      draft[i] = 0; syncRoundInput(i);
+    });
+    wrap.appendChild(el);
+  });
+  updateEntryStops();
+}
+function syncRoundInput(i) {
+  const input = document.querySelector(`.roundVal[data-i="${i}"]`);
+  if (input) input.value = draft[i];
+  updateEntryStops();
+}
+// Köpstopp applies the instant a player's running total (committed + points being
+// entered this round) reaches the level — so it can trigger mid-round.
+function updateEntryStops() {
+  if (!draft || !(state.buyStop > 0)) return;
+  const committed = totals();
+  state.players.forEach((p, i) => {
+    const flag = document.querySelector(`.stop-pill[data-stop="${i}"]`);
+    if (!flag) return;
+    const reached = (committed[i] + (draft[i] || 0)) >= state.buyStop;
+    flag.classList.toggle("hide", !reached);
+  });
+}
+function flashDelta(i, delta) {
+  if (!delta) return;
+  const input = document.querySelector(`.roundVal[data-i="${i}"]`);
+  if (!input) return;
+  // pop the value
+  input.classList.remove("pop"); void input.offsetWidth; input.classList.add("pop");
+  // floating +N / -N badge above the field
+  const rv = input.closest(".rv");
+  if (rv) {
+    const badge = document.createElement("span");
+    badge.className = "delta-badge" + (delta < 0 ? " minus" : "");
+    badge.textContent = (delta > 0 ? "+" : "") + delta;
+    rv.appendChild(badge);
+    setTimeout(() => badge.remove(), 850);
+  }
+}
+
+/* ---------------- History ---------------- */
+function renderHistory() {
+  const h = $("history");
+  if (state.rounds.length === 0) {
+    h.innerHTML = `<div class="empty">Inga omgångar än. Tryck på “Ny omgång”.</div>`;
+    return;
+  }
+  const t = totals();
+  let head = `<tr><th>#</th>${state.players.map(p => `<th>${escapeHtml(p.name)}</th>`).join("")}<th class="delcol"></th></tr>`;
+  let body = state.rounds.map((r, ri) =>
+    `<tr><td>${ri + 1}</td>${state.players.map((_, i) => `<td>${r[i] || 0}</td>`).join("")}<td class="delcol"><button class="delbtn" data-del="${ri}">✕</button></td></tr>`
+  ).join("");
+  let foot = `<tr style="font-weight:800;color:var(--gold)"><td>Σ</td>${t.map(v => `<td>${v}</td>`).join("")}<td class="delcol"></td></tr>`;
+  h.innerHTML = `<table>${head}${body}${foot}</table>`;
+  h.querySelectorAll("[data-del]").forEach(btn => {
+    btn.addEventListener("click", () => confirmDeleteRound(parseInt(btn.dataset.del)));
+  });
+}
+
+/* ---------------- Modal ---------------- */
+let modalAction = null;
+function openModal(title, text, onConfirm) {
+  $("modalTitle").textContent = title;
+  $("modalText").textContent = text;
+  modalAction = onConfirm;
+  $("modal").classList.remove("hidden");
+}
+function closeModal() { $("modal").classList.add("hidden"); modalAction = null; }
+$("modalCancel").onclick = closeModal;
+$("modalConfirm").onclick = () => { if (modalAction) modalAction(); closeModal(); };
+
+function confirmDeleteRound(ri) {
+  openModal("Ta bort omgång", `Vill du ta bort omgång ${ri + 1}?`, () => {
+    state.rounds.splice(ri, 1);
+    save(); renderBoard(); renderHistory(); renderWinner();
+  });
+}
+$("newGameBtn").onclick = () => {
+  openModal("Nytt spel", "Detta nollställer den aktuella ställningen. Fortsätta?", () => {
+    state.started = false;
+    save();
+    showSetup();
+  });
+};
+
+/* ---------------- Utils ---------------- */
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+/* ---------------- Boot ---------------- */
+(function init() {
+  const had = load();
+  if (had && state.started && state.players && state.players.length) {
+    showGame();
+  } else {
+    setupCount = 3;
+    setupNames = ["", "", ""];
+    renderSetup();
+    showSetup();
+  }
+})();
+</script>
+</body>
+</html>
